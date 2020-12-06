@@ -1,0 +1,6 @@
+{
+    "board": "m5stack:esp32:m5stack-coreink",
+    "configuration": "PartitionScheme=default,UploadSpeed=921600,DebugLevel=info",
+    "sketch": "enddy.ino",
+    "port": "COM4"
+}
