@@ -17,6 +17,12 @@ SCREEN_ROW = 12
 SCREEN_COL = 26
 FONT_HEIGHT = 16
 
+WIFI_SSID = ''
+WIFI_PASSWORD = ''
+
+LOG_FILE_PATH = '/flash/enddy.log'
+
+##########################################################
 
 def ms_to_human(ms):
     days, ms = divmod(ms, 24*3600*1000)
@@ -87,6 +93,7 @@ class Ui:
         self._button_up = btnUP
         self._button_down = btnDOWN
         self._button_mid = btnMID
+        self._button_ext = btnEXT
     
     def println(self, msg):
         self._screen_buf.add(msg)
@@ -101,17 +108,53 @@ class Ui:
     
     def on_button_mid(self, action):
         self._button_mid.wasPressed(action)
+    
+    def on_button_ext(self, action):
+        self._button_ext.wasPressed(action)
 
 
 class AppState:
     def __init__(self):
         self._start_time = -1
+        self._last_date = None
+
+
+class Logger:
+    def __init__(self):
+        self._log_fp = None
+
+    def close(self):
+        if not self._log_fp:
+            return
+        try:
+            self._log_fp.close()
+        except Exception:
+            pass
+        self._log_fp = None
+    
+    def last_line(self):
+        # TODO
+        # self.close()
+        pass
+    
+    def clear_log(self):
+        self.close()
+
+        self._log_fp = open(LOG_FILE_PATH, 'w', encoding='utf-8')
+    
+    def log(self, msg):
+        if not self._log_fp:
+            self._log_fp = open(LOG_FILE_PATH, 'a', encoding='utf-8')
+        
+        self._log_fp.write(msg + '\n')
+        self._log_fp.flush()
 
 
 # global variables here
 g_m5obj = M5StackObj()
 g_appUi = Ui()
 g_appState = AppState()
+g_logger = Logger()
 
 
 def connect_wifi(ssid, pwd):
@@ -126,24 +169,34 @@ def sync_ntp():
     # >>> time.localtime(ntp.getTimestamp())
     # (2020, 12, 1, 20, 51, 41, 1, 336)
     # i.e. 660171101
-    return ntp.getTimestamp()
-    # return g_m5obj._rtc.datetime()
+    # return str(time.localtime(ntp.getTimestamp()))
 
 
 def record_event():
     global g_appState
+    # (2020, 12, 10, 3, 0, 56, 26, 150)
+    # (year, month, day, ?, hour, minute, sec)
     current = list(g_m5obj._rtc.datetime())
     if g_appState._start_time <= 0:
         # start
+        if g_appState._last_date and current[2] != g_appState._last_date[2]:
+            msg = '-' * SCREEN_COL
+            g_appUi.println(msg)
+            g_logger.log(msg)
+            g_appState._last_date = current
+
         g_appState._start_time = time.ticks_ms()
-        g_appUi.println('{:02}-{:02} {:02}:{:02}:{:02}: started'.format(
-            current[1], current[2], current[3], current[4], current[5]))
+        msg = '{:02}-{:02} {:02}:{:02}:{:02}: started'.format(
+            current[1], current[2], current[4], current[5], current[6])
     else:
         # end
         cost = time.ticks_ms() - g_appState._start_time
         g_appState._start_time = -1
-        g_appUi.println('{:02}-{:02} {:02}:{:02}:{:02}: end, cost: {}'.format(
-            current[1], current[2], current[3], current[4], current[5], ms_to_human(cost)))
+        msg = '{:02}-{:02} {:02}:{:02}:{:02}: end, cost: {}'.format(
+            current[1], current[2], current[4], current[5], current[6], ms_to_human(cost))
+    g_appUi.println(msg)
+    g_logger.log(msg)
+
 
 
 def on_button_rec():
@@ -156,25 +209,35 @@ def on_button_rec():
 
 
 def on_button_sync_ntp_with_wifi():
-    connected = connect_wifi('xxx', 'xxx')
+    connected = False
+    if g_m5obj._wifiCfg.is_connected():
+        connected = True
+    else:
+        connected = connect_wifi(WIFI_SSID, WIFI_PASSWORD)
     g_appUi.println('wifi connected: {}'.format(connected))
-    current = sync_ntp()
+    sync_ntp()
+    current = str(g_m5obj._rtc.datetime())
     g_appUi.println('current date is: {}'.format(current))
 
     coreInkParitalShow(0, 0, 200, 200)
 
 
-def main():
-    g_appUi.on_button_up(on_button_rec)
-    g_appUi.on_button_down(on_button_rec)
-    g_appUi.on_button_mid(on_button_sync_ntp_with_wifi)
+def on_button_clear_log():
+    g_appUi.println('! LOG FILE DELETED !')
 
-    # show display
-    coreInkShow()
+    g_logger.clear_log()
 
-    # use this to do efficient display refresh
-    # coreInkParitalShow(0, 0, 200, 200)
+    coreInkParitalShow(0, 0, 200, 200)
 
 
-main()
+g_appUi.on_button_up(on_button_rec)
+g_appUi.on_button_down(on_button_rec)
+g_appUi.on_button_mid(on_button_sync_ntp_with_wifi)
+g_appUi.on_button_ext(on_button_clear_log)
+
+# show display
+coreInkShow()
+
+# use this to do efficient display refresh
+# coreInkParitalShow(0, 0, 200, 200)
 

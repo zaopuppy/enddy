@@ -72,10 +72,37 @@ class TestClass(unittest.TestCase):
         buf.add('1\n2\r\n3\n4\n5\n6\n' + ('9'*100))
         self.assertEqual(buf._buf_lines, ['9'*10, '9'*10, '9'*10, '9'*10, '9'*10])
 
+LOG_FILE_PATH = 'z.log'
+
+class Logger:
+    def __init__(self):
+        self._log_fp = None
+    
+    def clear_log(self):
+        if self._log_fp:
+            try:
+                self._log_fp.close()
+            except Exception:
+                pass
+            self._log_fp = None
+
+        self._log_fp = open(LOG_FILE_PATH, 'w', encoding='utf-8')
+    
+    def log(self, msg):
+        if not self._log_fp:
+            self._log_fp = open(LOG_FILE_PATH, 'a', encoding='utf-8')
+        
+        self._log_fp.write(msg + '\n')
+        self._log_fp.flush()
 
 
 if __name__ == "__main__":
     # unittest.main()
-    print(ms_to_human(100000000000000000))
-    print(ms_to_human(24*3600*1000))
+    # print(ms_to_human(100000000000000000))
+    # print(ms_to_human(24*3600*1000))
+    logger = Logger()
+    logger.log('hello')
+    # logger.clear_log()
+    logger.log('hello again')
+
 
